@@ -111,7 +111,7 @@ struct TestCase
     uint32_t TILE_N;
     uint32_t TILE_K;
 
-    bool BColMajor;
+    uint32_t BLayout;
     uint32_t ARowLen;
     uint32_t ANumRows;
     uint32_t BRowLen;
@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
         CHECK_RESULT(result);
 
         for (uint32_t j = 0; j < numExtensions; ++j) {
-            if (strcmp(extensions[j].extensionName, VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME) == 0) {
+            if (strcmp(extensions[j].extensionName, VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME) == 0) {
                 physicalDeviceIndex = i;
                 break;
             }
@@ -378,7 +378,7 @@ int main(int argc, char *argv[])
     }
 
     if (physicalDeviceIndex == -1) {
-        printf("couldn't find physical device that supports VK_NV_cooperative_matrix\n");
+        printf("couldn't find physical device that supports VK_KHR_cooperative_matrix\n");
         return 0;
     }
     VkPhysicalDevice physicalDevice = physicalDevices[physicalDeviceIndex];
@@ -420,25 +420,25 @@ int main(int argc, char *argv[])
 
     // Query the list of supported cooperative matrix multiply sizes/types.
     uint32_t numCooperativeMatrixProperties = 0;
-    vector<VkCooperativeMatrixPropertiesNV> cooperativeMatrixProperties;
+    vector<VkCooperativeMatrixPropertiesKHR> cooperativeMatrixProperties;
 
-    PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV =
-        (PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceCooperativeMatrixPropertiesNV");
+    PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR =
+        (PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR");
 
-    result = pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV(physicalDevice, &numCooperativeMatrixProperties, NULL);
+    result = pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR(physicalDevice, &numCooperativeMatrixProperties, NULL);
     CHECK_RESULT(result);
 
     cooperativeMatrixProperties.resize(numCooperativeMatrixProperties);
     for (uint32_t i = 0; i < numCooperativeMatrixProperties; ++i) {
-        cooperativeMatrixProperties[i].sType = VK_STRUCTURE_TYPE_COOPERATIVE_MATRIX_PROPERTIES_NV;
+        cooperativeMatrixProperties[i].sType = VK_STRUCTURE_TYPE_COOPERATIVE_MATRIX_PROPERTIES_KHR;
         cooperativeMatrixProperties[i].pNext = NULL;
     }
 
-    result = pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV(physicalDevice, &numCooperativeMatrixProperties, &cooperativeMatrixProperties[0]);
+    result = pfn_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR(physicalDevice, &numCooperativeMatrixProperties, &cooperativeMatrixProperties[0]);
     CHECK_RESULT(result);
 
-    VkPhysicalDeviceCooperativeMatrixFeaturesNV coopMatFeatures = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV,
+    VkPhysicalDeviceCooperativeMatrixFeaturesKHR coopMatFeatures = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR,
         NULL,
         VK_TRUE, // cooperativeMatrix
         VK_FALSE, // cooperativeMatrixRobustBufferAccess
@@ -459,7 +459,7 @@ int main(int argc, char *argv[])
         VK_FALSE, // shaderInt8
     };
 
-    const char *enabledDeviceExtensions[] = { VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME,
+    const char *enabledDeviceExtensions[] = { VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME,
                                               VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
                                               VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME };
     VkDeviceCreateInfo deviceCreateInfo = {
@@ -581,19 +581,19 @@ int main(int argc, char *argv[])
     for (uint32_t tt = 0; tt < TT_COUNT; ++tt) {
     for (uint32_t i = 0; i < numCooperativeMatrixProperties; ++i) {
 
-        VkCooperativeMatrixPropertiesNV *cooperativeMatrixProps = &cooperativeMatrixProperties[i];
+        VkCooperativeMatrixPropertiesKHR *cooperativeMatrixProps = &cooperativeMatrixProperties[i];
 
-        if (cooperativeMatrixProps->DType != VK_COMPONENT_TYPE_FLOAT16_NV &&
-            cooperativeMatrixProps->DType != VK_COMPONENT_TYPE_FLOAT32_NV &&
-            cooperativeMatrixProps->AType != VK_COMPONENT_TYPE_UINT8_NV &&
-            cooperativeMatrixProps->AType != VK_COMPONENT_TYPE_SINT8_NV) {
+        if (cooperativeMatrixProps->ResultType != VK_COMPONENT_TYPE_FLOAT16_KHR &&
+            cooperativeMatrixProps->ResultType != VK_COMPONENT_TYPE_FLOAT32_KHR &&
+            cooperativeMatrixProps->AType != VK_COMPONENT_TYPE_UINT8_KHR &&
+            cooperativeMatrixProps->AType != VK_COMPONENT_TYPE_SINT8_KHR) {
             continue;
         }
 
         std::string suffix =
-            cooperativeMatrixProps->AType == VK_COMPONENT_TYPE_UINT8_NV ? "u8" :
-            cooperativeMatrixProps->AType == VK_COMPONENT_TYPE_SINT8_NV ? "s8" :
-            cooperativeMatrixProps->DType == VK_COMPONENT_TYPE_FLOAT16_NV ? "fp16" : "fp32";
+            cooperativeMatrixProps->AType == VK_COMPONENT_TYPE_UINT8_KHR ? "u8" :
+            cooperativeMatrixProps->AType == VK_COMPONENT_TYPE_SINT8_KHR ? "s8" :
+            cooperativeMatrixProps->ResultType == VK_COMPONENT_TYPE_FLOAT16_KHR ? "fp16" : "fp32";
 
         std::string fileName;
         switch (tt) {
@@ -642,7 +642,7 @@ int main(int argc, char *argv[])
                 componentTypeInfo[cooperativeMatrixProps->AType].typeName,
                 componentTypeInfo[cooperativeMatrixProps->BType].typeName,
                 componentTypeInfo[cooperativeMatrixProps->CType].typeName,
-                componentTypeInfo[cooperativeMatrixProps->DType].typeName,
+                componentTypeInfo[cooperativeMatrixProps->ResultType].typeName,
                 scopeString[cooperativeMatrixProps->scope]);
 
         // For performance, test a 4096x4096x4096 multiply. For correctness,
@@ -671,9 +671,9 @@ int main(int argc, char *argv[])
         for (unsigned int TILE_M_size = params->granularityTILE_M; TILE_M_size <= params->maxTILE_M; TILE_M_size += params->granularityTILE_M) {
         double maxPerfThisIter = 0;
         for (unsigned int TILE_N_size = params->granularityTILE_N; TILE_N_size <= params->maxTILE_N; TILE_N_size += params->granularityTILE_N) {
-        for (unsigned int bcolmajor = 0; bcolmajor <= 1; ++bcolmajor) {
+        for (unsigned int blayout = 0; blayout <= 1; ++blayout) {
 
-            bool BColMajor = bcolmajor != 0;
+            bool BColMajor = blayout != 0;
 
             // B matrix must be wide enough to load via uvec4 addressing from shared memory
             if (!BColMajor && tt == TT_SHARED &&
@@ -683,8 +683,8 @@ int main(int argc, char *argv[])
 
             TestCase testCase = {
                 (TestType)tt, //TestType testType;
-                cooperativeMatrixProps->AType, // VkComponentTypeNV inputType;
-                cooperativeMatrixProps->DType, // VkComponentTypeNV outputType;
+                cooperativeMatrixProps->AType, // VkComponentTypeKHR inputType;
+                cooperativeMatrixProps->ResultType, // VkComponentTypeKHR outputType;
 
                 // MxNxK is the size of the full matrix multiply
                 defaultM, // uint32_t M;
@@ -701,7 +701,7 @@ int main(int argc, char *argv[])
                 TILE_N_size, // uint32_t TILE_N;
                 cooperativeMatrixProps->KSize, // uint32_t TILE_K;
 
-                BColMajor, // bool BColMajor;
+                blayout, // uint32_t BLayout;
             };
             float alpha = 2.0f, beta = 3.0f;
 
@@ -709,13 +709,13 @@ int main(int argc, char *argv[])
                 // These TILE_K sizes are what happens to perform better on current HW.
                 if (componentTypeInfo[cooperativeMatrixProps->AType].bits == 8) {
                     testCase.TILE_K = 64;
-                } else if (cooperativeMatrixProps->DType == VK_COMPONENT_TYPE_FLOAT16_NV) {
+                } else if (cooperativeMatrixProps->ResultType == VK_COMPONENT_TYPE_FLOAT16_KHR) {
                     testCase.TILE_K = 32;
                 } else {
                     testCase.TILE_K = 16;
                 }
                 // This tile size is too slow and may TDR.
-                if (componentTypeInfo[cooperativeMatrixProps->DType].bits == 32 &&
+                if (componentTypeInfo[cooperativeMatrixProps->ResultType].bits == 32 &&
                     testCase.TILE_M == 256 && testCase.TILE_N == 256) {
                     continue;
                 }
@@ -738,8 +738,8 @@ int main(int argc, char *argv[])
 
             createMatrixDesc(device, memoryProperties, matrices[MAT_A], cooperativeMatrixProps->AType, testCase.M, testCase.K);
             createMatrixDesc(device, memoryProperties, matrices[MAT_B], cooperativeMatrixProps->AType, testCase.K, testCase.N);
-            createMatrixDesc(device, memoryProperties, matrices[MAT_C], cooperativeMatrixProps->DType, testCase.M, testCase.N);
-            createMatrixDesc(device, memoryProperties, matrices[MAT_D], cooperativeMatrixProps->DType, testCase.M, testCase.N);
+            createMatrixDesc(device, memoryProperties, matrices[MAT_C], cooperativeMatrixProps->ResultType, testCase.M, testCase.N);
+            createMatrixDesc(device, memoryProperties, matrices[MAT_D], cooperativeMatrixProps->ResultType, testCase.M, testCase.N);
 
             // Allocate buffer to hold device addresses for the four matrices
             VkBuffer paramBuffer;
@@ -849,12 +849,12 @@ int main(int argc, char *argv[])
                 testCase.TILE_K,
                 testCase.K,
                 testCase.K, // stride0
-                testCase.BColMajor ? testCase.K : testCase.N, // stride1
+                testCase.BLayout != 0 ? testCase.K : testCase.N, // stride1
                 testCase.N, // stride2
                 testCase.N, // stride3
                 *(uint32_t *)&alpha,
                 *(uint32_t *)&beta,
-                testCase.BColMajor,
+                testCase.BLayout,
                 testCase.ARowLen,
                 testCase.ANumRows,
                 testCase.BRowLen,
@@ -1000,7 +1000,7 @@ int main(int argc, char *argv[])
             uint64_t flops = 2ULL * (uint64_t)testCase.M * (uint64_t)testCase.N * (uint64_t)testCase.K * (uint64_t)repeatCount;
             double tflops = (double)flops / (double)(elapsedUs / 1000000.0) / (1000.0*1000.0*1000.0*1000.0);
 
-            printf("TILE_M=%d TILE_N=%d, TILE_K=%d BColMajor=%d ", testCase.TILE_M, testCase.TILE_N, testCase.TILE_K, testCase.BColMajor);
+            printf("TILE_M=%d TILE_N=%d, TILE_K=%d BLayout=%d ", testCase.TILE_M, testCase.TILE_N, testCase.TILE_K, testCase.BLayout);
             if (!correctness) {
                 printf("  %f TFlops\n", tflops);
             }
@@ -1038,7 +1038,7 @@ int main(int argc, char *argv[])
                             float ref = 0;
                             for (uint32_t k = 0; k < testCase.K; ++k)
                             {
-                                ref += mat_a.getDataFloat(i, k, false) * mat_b.getDataFloat(k, j, testCase.BColMajor);
+                                ref += mat_a.getDataFloat(i, k, false) * mat_b.getDataFloat(k, j, testCase.BLayout);
                             }
 
                             ref = alpha*ref + beta*mat_c.getDataFloat(i, j, false);
@@ -1058,7 +1058,7 @@ int main(int argc, char *argv[])
                             uint32_t ref = 0;
                             for (uint32_t k = 0; k < testCase.K; ++k)
                             {
-                                ref += mat_a.getDataInt(i, k, false) * mat_b.getDataInt(k, j, testCase.BColMajor);
+                                ref += mat_a.getDataInt(i, k, false) * mat_b.getDataInt(k, j, testCase.BLayout);
                             }
 
                             ref = ((int)alpha)*ref + ((int)beta)*mat_c.getDataInt(i, j, false);
