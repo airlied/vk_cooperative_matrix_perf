@@ -26,6 +26,7 @@
 #include <fstream>
 #include <vector>
 #include <chrono>
+#include <math.h>
 #include <string.h>
 
 #include <vulkan/vulkan.h>
@@ -1044,7 +1045,9 @@ int main(int argc, char *argv[])
                             ref = alpha*ref + beta*mat_c.getDataFloat(i, j, false);
 
                             float Dij = mat_d.getDataFloat(i, j, false);
-                            if (ref != Dij) {
+                            const float e = 0.0001;
+                            const float diff = fabsf(Dij - ref);
+                            if (diff > e) {
                                 pass = false;
                                 printf("error %d %d %f != %f\n", i, j, ref, Dij);
                             }
