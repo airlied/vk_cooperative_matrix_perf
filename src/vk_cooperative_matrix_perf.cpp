@@ -117,6 +117,8 @@ struct TestCase
     uint32_t ANumRows;
     uint32_t BRowLen;
     uint32_t BNumRows;
+
+    uint32_t local_size_x;
 };
 
 struct MatrixDesc
@@ -384,6 +386,17 @@ int main(int argc, char *argv[])
     }
     VkPhysicalDevice physicalDevice = physicalDevices[physicalDeviceIndex];
 
+
+    VkPhysicalDeviceSubgroupProperties subgroupProperties = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
+	NULL,
+    };
+
+    VkPhysicalDeviceProperties2 physicaldeviceProperties = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        &subgroupProperties,
+    };
+    vkGetPhysicalDeviceProperties2(physicalDevice, &physicaldeviceProperties);
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
@@ -662,8 +675,9 @@ int main(int argc, char *argv[])
 
         // TT_SHARED requires a multiple of 128x128 to satisfy the assumptions
         // of its SSBO->shared memory copy code.
+	// For subroup sizes the tiles needs to be a multiple of the subgroup.
         SubTestParams subTestParams[] = {
-            { 256, 256, 128, 128 }, // TT_SHARED
+            { 256, 256, subgroupProperties.subgroupSize * 4, subgroupProperties.subgroupSize * 4 },
             { 128, 128, cooperativeMatrixProps->MSize, cooperativeMatrixProps->NSize }, // TT_TILED
         };
 
@@ -717,7 +731,8 @@ int main(int argc, char *argv[])
                 }
                 // This tile size is too slow and may TDR.
                 if (componentTypeInfo[cooperativeMatrixProps->ResultType].bits == 32 &&
-                    testCase.TILE_M == 256 && testCase.TILE_N == 256) {
+                    testCase.TILE_M == subgroupProperties.subgroupSize * 8 &&
+                    testCase.TILE_N == subgroupProperties.subgroupSize * 8) {
                     continue;
                 }
             }
@@ -732,6 +747,11 @@ int main(int argc, char *argv[])
             testCase.ANumRows = testCase.TILE_M;
             testCase.BRowLen = BColMajor ? testCase.TILE_K : testCase.TILE_N;
             testCase.BNumRows = BColMajor ? testCase.TILE_N : testCase.TILE_K;
+            testCase.local_size_x = subgroupProperties.subgroupSize;
+
+            if (tt == TT_SHARED) {
+                testCase.local_size_x *= 8; /* * subgroups per workgrup */
+            }
 
             enum {MAT_A = 0, MAT_B = 1, MAT_C = 2, MAT_D = 3, NUM_MATS = 4};
 
@@ -860,6 +880,7 @@ int main(int argc, char *argv[])
                 testCase.ANumRows,
                 testCase.BRowLen,
                 testCase.BNumRows,
+                testCase.local_size_x,
             };
 
 #if 0
@@ -887,6 +908,7 @@ int main(int argc, char *argv[])
                 {15, sizeof(uint32_t) * 15, sizeof(uint32_t)},
                 {16, sizeof(uint32_t) * 16, sizeof(uint32_t)},
                 {17, sizeof(uint32_t) * 17, sizeof(uint32_t)},
+                {18, sizeof(uint32_t) * 18, sizeof(uint32_t)},
             };
 
             VkSpecializationInfo specInfo =
