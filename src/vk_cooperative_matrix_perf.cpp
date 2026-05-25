@@ -1198,6 +1198,10 @@ int main(int argc, char *argv[])
                 componentTypeInfo[BType].bits / 8 * NSize < 16) {
                 continue;
             }
+            if (BColMajor && (tt == TT_SHARED || tt == TT_SHARED_LOAD) &&
+                componentTypeInfo[BType].bits / 8 * KSize < 16) {
+                continue;
+            }
 
             TestCase testCase = {
                 (TestType)tt, //TestType testType;
