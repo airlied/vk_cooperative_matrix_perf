@@ -105,6 +105,8 @@ enum TestType
     TT_SHARED = 1,
     TT_TILED = 2,
     TT_WORKGROUP_LOAD = 3,
+    TT_TILED_LOAD = 4,
+    TT_SHARED_LOAD = 5,
     TT_COUNT,
 };
 
@@ -113,6 +115,8 @@ static const char *testTypeNames[] = {
     "shared",           // TT_SHARED
     "tiled",            // TT_TILED
     "workgroup_load",   // TT_WORKGROUP_LOAD
+    "tiled_load",       // TT_TILED_LOAD
+    "shared_load",      // TT_SHARED_LOAD
 };
 
 struct TestFilter {
@@ -1008,10 +1012,13 @@ int main(int argc, char *argv[])
         }
 
         bool isWorkgroupTest = (tt == TT_WORKGROUP || tt == TT_WORKGROUP_LOAD);
+        bool isLoadOnlyTest = (tt == TT_TILED_LOAD || tt == TT_SHARED_LOAD);
         if ((isWorkgroupTest && scope != VK_SCOPE_WORKGROUP_KHR) ||
             (!isWorkgroupTest && scope != VK_SCOPE_SUBGROUP_KHR)) {
             continue;
         }
+
+        if (isLoadOnlyTest && correctness) continue;
 
         if (filter.inputType != -1 && AType != (VkComponentTypeKHR)filter.inputType) continue;
         if (filter.outputType != -1 && ResultType != (VkComponentTypeKHR)filter.outputType) continue;
@@ -1089,6 +1096,12 @@ int main(int argc, char *argv[])
         case TT_TILED:
             fileName = std::string("shaders/tiled");
             break;
+        case TT_TILED_LOAD:
+            fileName = std::string("shaders/tiled_load");
+            break;
+        case TT_SHARED_LOAD:
+            fileName = std::string("shaders/shmem_load");
+            break;
         }
         fileName = fileName + typeStrA + "_" + typeStrR + ".spv";
 
@@ -1151,6 +1164,8 @@ int main(int argc, char *argv[])
             { 256, 256, 128, 128 }, // TT_SHARED
             { 128, 128, MSize, NSize }, // TT_TILED
             { 256, 256, 128, 128 }, // TT_WORKGROUP_LOAD
+            { 128, 128, MSize, NSize }, // TT_TILED_LOAD
+            { 256, 256, 128, 128 }, // TT_SHARED_LOAD
         };
 
         SubTestParams *params = &subTestParams[tt];
@@ -1177,7 +1192,7 @@ int main(int argc, char *argv[])
             bool BColMajor = bcolmajor != 0;
 
             // B matrix must be wide enough to load via uvec4 addressing from shared memory
-            if (!BColMajor && tt == TT_SHARED &&
+            if (!BColMajor && (tt == TT_SHARED || tt == TT_SHARED_LOAD) &&
                 componentTypeInfo[BType].bits / 8 * NSize < 16) {
                 continue;
             }
@@ -1206,7 +1221,7 @@ int main(int argc, char *argv[])
             };
             float alpha = 2.0f, beta = 3.0f;
 
-            if (tt == TT_SHARED || isWorkgroupTest) {
+            if (tt == TT_SHARED || tt == TT_SHARED_LOAD || isWorkgroupTest) {
                 // These TILE_K sizes happens to perform well on current HW.
                 if (componentTypeInfo[AType].bits == 8) {
                     if (testCase.TILE_K != 64) {
@@ -1239,11 +1254,13 @@ int main(int argc, char *argv[])
                 }
                 break;
             case TT_SHARED:
+            case TT_SHARED_LOAD:
                 if (workgroupSize != subgroupSize * 8) {
                     continue;
                 }
                 break;
             case TT_TILED:
+            case TT_TILED_LOAD:
                 if (workgroupSize != subgroupSize) {
                     continue;
                 }
@@ -1539,7 +1556,7 @@ int main(int argc, char *argv[])
             if (!correctness) {
                 // warmup submits, to get the clocks up before we run the timing
                 submitInfo.pCommandBuffers = &commandBuffers[1];
-                int warmupCount = tt == TT_SHARED ? 5 : 2;
+                int warmupCount = (tt == TT_SHARED || tt == TT_SHARED_LOAD) ? 5 : 2;
                 for (int i = 0; i < warmupCount; ++i) {
                     result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
                     CHECK_RESULT(result);
@@ -1564,7 +1581,15 @@ int main(int argc, char *argv[])
 
             printf("TILE_M=%d TILE_N=%d, TILE_K=%d BColMajor=%d workgroupSize=%d ", testCase.TILE_M, testCase.TILE_N, testCase.TILE_K, testCase.BColMajor, workgroupSize);
             if (!correctness) {
-                printf("  %f TFlops\n", tflops);
+                if (isLoadOnlyTest) {
+                    uint64_t elementsA = (uint64_t)testCase.M * (uint64_t)testCase.K * (uint64_t)repeatCount;
+                    uint64_t elementsB = (uint64_t)testCase.K * (uint64_t)testCase.N * (uint64_t)repeatCount;
+                    uint64_t bytesLoaded = (elementsA + elementsB) * componentTypeInfo[AType].bits / 8;
+                    double gbps = (double)bytesLoaded / (elapsedUs / 1000000.0) / (1000.0*1000.0*1000.0);
+                    printf("  %f GB/s\n", gbps);
+                } else {
+                    printf("  %f TFlops\n", tflops);
+                }
             }
 
             // Upload the result from device memory.
@@ -1654,13 +1679,17 @@ int main(int argc, char *argv[])
             }
             vkDestroyPipeline(device, pipeline, NULL);
 
-            if (maxPerfThisIter < tflops) {
-                maxPerfThisIter = tflops;
+            double perf = isLoadOnlyTest ?
+                ((double)((uint64_t)testCase.M * (uint64_t)testCase.K + (uint64_t)testCase.K * (uint64_t)testCase.N) *
+                 repeatCount * componentTypeInfo[AType].bits / 8 / (elapsedUs / 1000000.0) / (1000.0*1000.0*1000.0)) :
+                tflops;
+            if (maxPerfThisIter < perf) {
+                maxPerfThisIter = perf;
             }
             // Stop this iteration (increasing tile size) if we've gotten to
             // the point where performance is decreasing. This usually means
             // the tile no longer fits in register file.
-            if (!correctness && tflops < maxPerfThisIter / 2 && tt == TT_TILED) {
+            if (!correctness && perf < maxPerfThisIter / 2 && (tt == TT_TILED || tt == TT_TILED_LOAD)) {
                 break;
             }
 
