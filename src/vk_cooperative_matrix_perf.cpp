@@ -1592,6 +1592,8 @@ int main(int argc, char *argv[])
                 const MatrixDesc &mat_d = matrices[MAT_D];
                 bool pass = true;
 
+                uint32_t errorCount = 0;
+
                 if (mat_a.isFloatType()) {
                     for (uint32_t i = 0; i < testCase.M; ++i)
                     {
@@ -1607,8 +1609,11 @@ int main(int argc, char *argv[])
 
                             float Dij = mat_d.getDataFloat(i, j, false);
                             if (ref != Dij) {
+                                if (errorCount == 0) {
+                                    printf("first error at [%d,%d]: expected %f got %f\n", i, j, ref, Dij);
+                                }
                                 pass = false;
-                                printf("error %d %d %f != %f\n", i, j, ref, Dij);
+                                errorCount++;
                             }
                         }
                     }
@@ -1627,13 +1632,20 @@ int main(int argc, char *argv[])
 
                             uint32_t Dij = mat_d.getDataInt(i, j, false);
                             if (ref != Dij) {
+                                if (errorCount == 0) {
+                                    printf("first error at [%d,%d]: expected %d got %d\n", i, j, ref, Dij);
+                                }
                                 pass = false;
-                                printf("error %d %d %d != %d\n", i, j, ref, Dij);
+                                errorCount++;
                             }
                         }
                     }
                 }
-                printf("%s\n", pass ? "pass" : "fail");
+                if (pass) {
+                    printf("pass\n");
+                } else {
+                    printf("FAIL (%d errors out of %d elements)\n", errorCount, testCase.M * testCase.N);
+                }
             }
 
             // Free the memory/buffers/pipeline for this iteration.
