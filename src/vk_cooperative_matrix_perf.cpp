@@ -104,6 +104,7 @@ enum TestType
     TT_WORKGROUP = 0,
     TT_SHARED = 1,
     TT_TILED = 2,
+    TT_WORKGROUP_LOAD = 3,
     TT_COUNT,
 };
 
@@ -906,8 +907,9 @@ int main(int argc, char *argv[])
             scope = cooperativeMatrixProps->scope;
         }
 
-        if ((tt == TT_WORKGROUP && scope != VK_SCOPE_WORKGROUP_KHR) ||
-            (tt != TT_WORKGROUP && scope != VK_SCOPE_SUBGROUP_KHR)) {
+        bool isWorkgroupTest = (tt == TT_WORKGROUP || tt == TT_WORKGROUP_LOAD);
+        if ((isWorkgroupTest && scope != VK_SCOPE_WORKGROUP_KHR) ||
+            (!isWorkgroupTest && scope != VK_SCOPE_SUBGROUP_KHR)) {
             continue;
         }
 
@@ -975,6 +977,9 @@ int main(int argc, char *argv[])
         case TT_WORKGROUP:
             fileName = std::string("shaders/workgroup");
             break;
+        case TT_WORKGROUP_LOAD:
+            fileName = std::string("shaders/workgroup_load");
+            break;
         case TT_SHARED:
             fileName = std::string("shaders/shmem");
             break;
@@ -1040,6 +1045,7 @@ int main(int argc, char *argv[])
             { 256, 256, 128, 128}, // TT_WORKGROUP
             { 256, 256, 128, 128 }, // TT_SHARED
             { 128, 128, MSize, NSize }, // TT_TILED
+            { 256, 256, 128, 128 }, // TT_WORKGROUP_LOAD
         };
 
         SubTestParams *params = &subTestParams[tt];
@@ -1051,10 +1057,10 @@ int main(int argc, char *argv[])
         for (unsigned int TILE_K = 16; TILE_K <= 64; TILE_K *= 2) {
         for (unsigned int workgroupSize = 32; workgroupSize <= 256; workgroupSize *= 2) {
 
-            if (tt == TT_WORKGROUP && (TILE_N_size == 192 || TILE_M_size == 192)) {
+            if (isWorkgroupTest && (TILE_N_size == 192 || TILE_M_size == 192)) {
                 continue;
             }
-            if (tt == TT_WORKGROUP && TILE_K < KSize) {
+            if (isWorkgroupTest && TILE_K < KSize) {
                 continue;
             }
 
@@ -1090,7 +1096,7 @@ int main(int argc, char *argv[])
             };
             float alpha = 2.0f, beta = 3.0f;
 
-            if (tt == TT_SHARED || tt == TT_WORKGROUP) {
+            if (tt == TT_SHARED || isWorkgroupTest) {
                 // These TILE_K sizes happens to perform well on current HW.
                 if (componentTypeInfo[AType].bits == 8) {
                     if (testCase.TILE_K != 64) {
@@ -1117,6 +1123,7 @@ int main(int argc, char *argv[])
             }
             switch (tt) {
             case TT_WORKGROUP:
+            case TT_WORKGROUP_LOAD:
                 if (workgroupSize != 128 && workgroupSize != 256) {
                     continue;
                 }

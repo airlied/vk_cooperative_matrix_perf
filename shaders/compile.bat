@@ -31,6 +31,15 @@ glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_
 glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float16_t -V workgroup.comp -o workgroupe4m3_fp16.spv
 glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float32_t -V workgroup.comp -o workgroupe5m2_fp32.spv
 glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float32_t -V workgroup.comp -o workgroupe4m3_fp32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=bfloat16_t              -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loadbf16_fp32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loadfp16_fp16.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loadfp16_fp32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=uint8_t                 -DC_TYPE=uint32_t  -V workgroup_load.comp -o workgroup_loadu8_u32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=int8_t                  -DC_TYPE=int32_t   -V workgroup_load.comp -o workgroup_loads8_s32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loade5m2_fp16.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loade4m3_fp16.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loade5m2_fp32.spv
+glslangValidator.exe --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loade4m3_fp32.spv
 glslangValidator.exe --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=float16_t   -DC_TYPE=float16_t -V tiled.comp -o tiledfp16_fp16.spv
 glslangValidator.exe --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=bfloat16_t  -DC_TYPE=float32_t -V tiled.comp -o tiledbf16_fp32.spv
 glslangValidator.exe --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=float16_t   -DC_TYPE=float32_t -V tiled.comp -o tiledfp16_fp32.spv
