@@ -108,6 +108,48 @@ enum TestType
     TT_COUNT,
 };
 
+static const char *testTypeNames[] = {
+    "workgroup",        // TT_WORKGROUP
+    "shared",           // TT_SHARED
+    "tiled",            // TT_TILED
+    "workgroup_load",   // TT_WORKGROUP_LOAD
+};
+
+struct TestFilter {
+    int testType;
+    int inputType;
+    int outputType;
+    int tileM;
+    int tileN;
+    int tileK;
+    int bcolmajor;
+    int workgroupSize;
+    int matrixSize;
+    bool list;
+};
+
+int parseTestType(const char *s)
+{
+    for (int i = 0; i < TT_COUNT; ++i) {
+        if (strcmp(s, testTypeNames[i]) == 0) return i;
+    }
+    return -1;
+}
+
+int parseComponentType(const char *s)
+{
+    if (strcmp(s, "fp16") == 0)  return VK_COMPONENT_TYPE_FLOAT16_KHR;
+    if (strcmp(s, "fp32") == 0)  return VK_COMPONENT_TYPE_FLOAT32_KHR;
+    if (strcmp(s, "bf16") == 0)  return VK_COMPONENT_TYPE_BFLOAT16_KHR;
+    if (strcmp(s, "u8") == 0)    return VK_COMPONENT_TYPE_UINT8_KHR;
+    if (strcmp(s, "s8") == 0)    return VK_COMPONENT_TYPE_SINT8_KHR;
+    if (strcmp(s, "u32") == 0)   return VK_COMPONENT_TYPE_UINT32_KHR;
+    if (strcmp(s, "s32") == 0)   return VK_COMPONENT_TYPE_SINT32_KHR;
+    if (strcmp(s, "e4m3") == 0)  return VK_COMPONENT_TYPE_FLOAT_E4M3_NV;
+    if (strcmp(s, "e5m2") == 0)  return VK_COMPONENT_TYPE_FLOAT_E5M2_NV;
+    return -1;
+}
+
 struct ComponentTypeInfo {
     const char *typeName;
     uint32_t bits;
@@ -504,12 +546,57 @@ void destroyMatrixDesc(VkDevice device, MatrixDesc &m)
 int main(int argc, char *argv[])
 {
     bool correctness = false;
-
-    printf("usage: vk_cooperative_matrix_perf.exe [--correctness]\n\n");
+    TestFilter filter = { -1, -1, -1, -1, -1, -1, -1, -1, -1, false };
 
     for (int arg = 1; arg < argc; ++arg) {
         if (strcmp(argv[arg], "--correctness") == 0) {
             correctness = true;
+        } else if (strcmp(argv[arg], "--list") == 0) {
+            filter.list = true;
+        } else if (strncmp(argv[arg], "--test-type=", 12) == 0) {
+            filter.testType = parseTestType(argv[arg] + 12);
+            if (filter.testType == -1) {
+                printf("unknown test type '%s'\n", argv[arg] + 12);
+                return 1;
+            }
+        } else if (strncmp(argv[arg], "--input-type=", 13) == 0) {
+            filter.inputType = parseComponentType(argv[arg] + 13);
+            if (filter.inputType == -1) {
+                printf("unknown input type '%s'\n", argv[arg] + 13);
+                return 1;
+            }
+        } else if (strncmp(argv[arg], "--output-type=", 14) == 0) {
+            filter.outputType = parseComponentType(argv[arg] + 14);
+            if (filter.outputType == -1) {
+                printf("unknown output type '%s'\n", argv[arg] + 14);
+                return 1;
+            }
+        } else if (strncmp(argv[arg], "--tile-m=", 9) == 0) {
+            filter.tileM = atoi(argv[arg] + 9);
+        } else if (strncmp(argv[arg], "--tile-n=", 9) == 0) {
+            filter.tileN = atoi(argv[arg] + 9);
+        } else if (strncmp(argv[arg], "--tile-k=", 9) == 0) {
+            filter.tileK = atoi(argv[arg] + 9);
+        } else if (strncmp(argv[arg], "--bcolmajor=", 12) == 0) {
+            filter.bcolmajor = atoi(argv[arg] + 12);
+        } else if (strncmp(argv[arg], "--workgroup-size=", 17) == 0) {
+            filter.workgroupSize = atoi(argv[arg] + 17);
+        } else if (strncmp(argv[arg], "--matrix-size=", 14) == 0) {
+            filter.matrixSize = atoi(argv[arg] + 14);
+        } else {
+            printf("usage: vk_cooperative_matrix_perf [options]\n"
+                   "  --correctness              Run correctness tests\n"
+                   "  --list                     List matching tests without running\n"
+                   "  --test-type=TYPE           workgroup, workgroup_load, shared, tiled\n"
+                   "  --input-type=TYPE          fp16, bf16, u8, s8, e4m3, e5m2\n"
+                   "  --output-type=TYPE         fp16, fp32, u32, s32\n"
+                   "  --tile-m=N                 TILE_M size\n"
+                   "  --tile-n=N                 TILE_N size\n"
+                   "  --tile-k=N                 TILE_K size\n"
+                   "  --bcolmajor=0|1            B column major\n"
+                   "  --workgroup-size=N         Workgroup size\n"
+                   "  --matrix-size=N            Matrix dimension (default: 4096 perf, 256 correctness)\n");
+            return 1;
         }
     }
 
@@ -857,7 +944,9 @@ int main(int argc, char *argv[])
     };
 
     // Loop over all shader types and all cooperative matrix properties.
+    uint32_t testsFound = 0;
     for (uint32_t tt = 0; tt < TT_COUNT; ++tt) {
+    if (filter.testType != -1 && (int)tt != filter.testType) continue;
     for (uint32_t i = 0; i < numCooperativeMatrixProperties + numCooperativeMatrixFlexibleDimensionsProperties; ++i) {
 
         uint32_t              MSize;
@@ -912,6 +1001,9 @@ int main(int argc, char *argv[])
             (!isWorkgroupTest && scope != VK_SCOPE_SUBGROUP_KHR)) {
             continue;
         }
+
+        if (filter.inputType != -1 && AType != (VkComponentTypeKHR)filter.inputType) continue;
+        if (filter.outputType != -1 && ResultType != (VkComponentTypeKHR)filter.outputType) continue;
 
         if (ResultType != VK_COMPONENT_TYPE_FLOAT16_KHR &&
             ResultType != VK_COMPONENT_TYPE_FLOAT32_KHR &&
@@ -991,29 +1083,31 @@ int main(int argc, char *argv[])
 
         printf("\nshader: %s\n", fileName.c_str());
 
-        // Load and create the shader module.
-        std::ifstream spirvfile(fileName.c_str(), std::ios::binary | std::ios::ate);
-        std::streampos spirvsize = spirvfile.tellg();
-        if ((int)spirvsize == -1) {
-            printf("%s not found!\n", fileName.c_str());
-            throw;
+        VkShaderModule shaderModule = VK_NULL_HANDLE;
+        if (!filter.list) {
+            // Load and create the shader module.
+            std::ifstream spirvfile(fileName.c_str(), std::ios::binary | std::ios::ate);
+            std::streampos spirvsize = spirvfile.tellg();
+            if ((int)spirvsize == -1) {
+                printf("%s not found!\n", fileName.c_str());
+                throw;
+            }
+            spirvfile.seekg(0, std::ios::beg);
+
+            vector<char> spirv(spirvsize);
+            spirvfile.read(&spirv[0], spirvsize);
+
+            VkShaderModuleCreateInfo shaderModuleCreateInfo = {
+                VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                NULL,
+                0,
+                spirv.size(),
+                (const uint32_t *)&spirv[0],
+            };
+
+            result = vkCreateShaderModule(device, &shaderModuleCreateInfo, NULL, &shaderModule);
+            CHECK_RESULT(result);
         }
-        spirvfile.seekg(0, std::ios::beg);
-
-        vector<char> spirv(spirvsize);
-        spirvfile.read(&spirv[0], spirvsize);
-
-        VkShaderModuleCreateInfo shaderModuleCreateInfo = {
-            VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            NULL,
-            0,
-            spirv.size(),
-            (const uint32_t *)&spirv[0],
-        };
-
-        VkShaderModule shaderModule;
-        result = vkCreateShaderModule(device, &shaderModuleCreateInfo, NULL, &shaderModule);
-        CHECK_RESULT(result);
 
         printf("\ncooperativeMatrixProps = %dx%dx%d   A = %s B = %s C = %s D = %s scope = %s \n",
                 MSize,
@@ -1027,7 +1121,7 @@ int main(int argc, char *argv[])
 
         // For performance, test a 4096x4096x4096 multiply. For correctness,
         // test 256x256x256 (because the CPU reference computation is so slow).
-        uint32_t defaultDim = correctness ? 256 : 4096;
+        uint32_t defaultDim = (filter.matrixSize > 0) ? filter.matrixSize : (correctness ? 256 : 4096);
         uint32_t defaultM = defaultDim;
         uint32_t defaultN = defaultDim;
         uint32_t defaultK = defaultDim;
@@ -1051,11 +1145,16 @@ int main(int argc, char *argv[])
         SubTestParams *params = &subTestParams[tt];
 
         for (unsigned int TILE_M_size = params->granularityTILE_M; TILE_M_size <= params->maxTILE_M; TILE_M_size += params->granularityTILE_M) {
+        if (filter.tileM != -1 && (int)TILE_M_size != filter.tileM) continue;
         double maxPerfThisIter = 0;
         for (unsigned int TILE_N_size = params->granularityTILE_N; TILE_N_size <= params->maxTILE_N; TILE_N_size += params->granularityTILE_N) {
+        if (filter.tileN != -1 && (int)TILE_N_size != filter.tileN) continue;
         for (unsigned int bcolmajor = 0; bcolmajor <= 1; ++bcolmajor) {
+        if (filter.bcolmajor != -1 && (int)bcolmajor != filter.bcolmajor) continue;
         for (unsigned int TILE_K = 16; TILE_K <= 64; TILE_K *= 2) {
+        if (filter.tileK != -1 && (int)TILE_K != filter.tileK) continue;
         for (unsigned int workgroupSize = 32; workgroupSize <= 256; workgroupSize *= 2) {
+        if (filter.workgroupSize != -1 && (int)workgroupSize != filter.workgroupSize) continue;
 
             if (isWorkgroupTest && (TILE_N_size == 192 || TILE_M_size == 192)) {
                 continue;
@@ -1153,6 +1252,17 @@ int main(int argc, char *argv[])
             testCase.ANumRows = testCase.TILE_M;
             testCase.BRowLen = BColMajor ? testCase.TILE_K : testCase.TILE_N;
             testCase.BNumRows = BColMajor ? testCase.TILE_N : testCase.TILE_K;
+
+            testsFound++;
+
+            if (filter.list) {
+                printf("%-14s %s -> %s  M=%d N=%d K=%d  TILE_M=%d TILE_N=%d TILE_K=%d BColMajor=%d workgroupSize=%d\n",
+                    testTypeNames[tt], typeStrA.c_str(), typeStrR.c_str(),
+                    testCase.M, testCase.N, testCase.K,
+                    testCase.TILE_M, testCase.TILE_N, testCase.TILE_K,
+                    testCase.BColMajor, workgroupSize);
+                continue;
+            }
 
             enum {MAT_A = 0, MAT_B = 1, MAT_C = 2, MAT_D = 3, NUM_MATS = 4};
 
@@ -1537,11 +1647,19 @@ int main(int argc, char *argv[])
         } // TILE_N_size
         } // TILE_M_size
 
-        vkDestroyShaderModule(device, shaderModule, NULL);
+        if (shaderModule != VK_NULL_HANDLE) {
+            vkDestroyShaderModule(device, shaderModule, NULL);
+        }
     } // numCooperativeMatrixProperties
     } // TT_COUNT
 
-    printf("\ndone\n");
+    if (testsFound == 0) {
+        printf("\nno matching tests found\n");
+    } else if (filter.list) {
+        printf("\n%d test(s) found\n", testsFound);
+    } else {
+        printf("\ndone (%d test(s) run)\n", testsFound);
+    }
 
     return 0;
 }
