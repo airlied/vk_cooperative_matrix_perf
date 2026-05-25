@@ -972,6 +972,7 @@ int main(int argc, char *argv[])
         VkComponentTypeKHR    CType;
         VkComponentTypeKHR    ResultType;
         VkScopeKHR            scope;
+        uint32_t              workgroupInvocations = 0;
 
         if (i < numCooperativeMatrixFlexibleDimensionsProperties) {
             VkCooperativeMatrixFlexibleDimensionsPropertiesNV *cooperativeMatrixProps = &cooperativeMatrixFlexibleDimensionsProperties[i];
@@ -983,6 +984,7 @@ int main(int argc, char *argv[])
             CType = cooperativeMatrixProps->CType;
             ResultType = cooperativeMatrixProps->ResultType;
             scope = cooperativeMatrixProps->scope;
+            workgroupInvocations = cooperativeMatrixProps->workgroupInvocations;
 
             bool skip = false;
             for (uint32_t j = 0; j < i; ++j) {
@@ -991,8 +993,8 @@ int main(int argc, char *argv[])
                     BType == other->BType &&
                     CType == other->CType &&
                     ResultType == other->ResultType &&
-                    scope == other->scope) {
-                    // We don't currently look at the granularity and workgroupInvocations, so skip "duplicates"
+                    scope == other->scope &&
+                    workgroupInvocations == other->workgroupInvocations) {
                     skip = true;
                 }
             }
@@ -1249,8 +1251,14 @@ int main(int argc, char *argv[])
             switch (tt) {
             case TT_WORKGROUP:
             case TT_WORKGROUP_LOAD:
-                if (workgroupSize != 128 && workgroupSize != 256) {
-                    continue;
+                if (workgroupInvocations > 0) {
+                    if (workgroupSize != workgroupInvocations) {
+                        continue;
+                    }
+                } else {
+                    if (workgroupSize != 128 && workgroupSize != 256) {
+                        continue;
+                    }
                 }
                 break;
             case TT_SHARED:
