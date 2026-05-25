@@ -30,7 +30,9 @@ glslangValidator --target-env spirv1.6 -DA_TYPE=bfloat16_t              -DC_TYPE
 glslangValidator --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float16_t -V workgroup.comp -o workgroupfp16_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float32_t -V workgroup.comp -o workgroupfp16_fp32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=uint8_t                 -DC_TYPE=uint32_t  -V workgroup.comp -o workgroupu8_u32.spv
+glslangValidator --target-env spirv1.6 -DA_TYPE=uint8_t                 -DC_TYPE=int32_t   -V workgroup.comp -o workgroupu8_s32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=int8_t                  -DC_TYPE=int32_t   -V workgroup.comp -o workgroups8_s32.spv
+glslangValidator --target-env spirv1.6 -DA_TYPE=int8_t                  -DC_TYPE=uint32_t  -V workgroup.comp -o workgroups8_u32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float16_t -V workgroup.comp -o workgroupe5m2_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float16_t -V workgroup.comp -o workgroupe4m3_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float32_t -V workgroup.comp -o workgroupe5m2_fp32.spv
@@ -39,7 +41,9 @@ glslangValidator --target-env spirv1.6 -DA_TYPE=bfloat16_t              -DC_TYPE
 glslangValidator --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loadfp16_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=float16_t               -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loadfp16_fp32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=uint8_t                 -DC_TYPE=uint32_t  -V workgroup_load.comp -o workgroup_loadu8_u32.spv
+glslangValidator --target-env spirv1.6 -DA_TYPE=uint8_t                 -DC_TYPE=int32_t   -V workgroup_load.comp -o workgroup_loadu8_s32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=int8_t                  -DC_TYPE=int32_t   -V workgroup_load.comp -o workgroup_loads8_s32.spv
+glslangValidator --target-env spirv1.6 -DA_TYPE=int8_t                  -DC_TYPE=uint32_t  -V workgroup_load.comp -o workgroup_loads8_u32.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loade5m2_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate4m3_t             -DC_TYPE=float16_t -V workgroup_load.comp -o workgroup_loade4m3_fp16.spv
 glslangValidator --target-env spirv1.6 -DA_TYPE=floate5m2_t             -DC_TYPE=float32_t -V workgroup_load.comp -o workgroup_loade5m2_fp32.spv
@@ -52,8 +56,12 @@ glslangValidator --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=bfloat16_t  -DC_TYPE
 glslangValidator --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=float16_t   -DC_TYPE=float32_t -V shmem.comp -o shmemfp16_fp32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=uint32_t  -V tiled.comp -o tiledu8_u32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=uint32_t  -V shmem.comp -o shmemu8_u32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=int32_t   -V tiled.comp -o tiledu8_s32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=int32_t   -V shmem.comp -o shmemu8_s32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=int32_t   -V tiled.comp -o tileds8_s32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=int32_t   -V shmem.comp -o shmems8_s32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=uint32_t  -V tiled.comp -o tileds8_u32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=uint32_t  -V shmem.comp -o shmems8_u32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate5m2_t -DC_TYPE=float16_t -V tiled.comp -o tilede5m2_fp16.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate4m3_t -DC_TYPE=float16_t -V tiled.comp -o tilede4m3_fp16.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate5m2_t -DC_TYPE=float32_t -V tiled.comp -o tilede5m2_fp32.spv
@@ -70,8 +78,12 @@ glslangValidator --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=bfloat16_t  -DC_TYPE
 glslangValidator --target-env spirv1.3 -DA_BITS=16 -DA_TYPE=float16_t   -DC_TYPE=float32_t -V shmem_load.comp -o shmem_loadfp16_fp32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=uint32_t  -V tiled_load.comp -o tiled_loadu8_u32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=uint32_t  -V shmem_load.comp -o shmem_loadu8_u32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=int32_t   -V tiled_load.comp -o tiled_loadu8_s32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=uint8_t     -DC_TYPE=int32_t   -V shmem_load.comp -o shmem_loadu8_s32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=int32_t   -V tiled_load.comp -o tiled_loads8_s32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=int32_t   -V shmem_load.comp -o shmem_loads8_s32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=uint32_t  -V tiled_load.comp -o tiled_loads8_u32.spv
+glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=int8_t      -DC_TYPE=uint32_t  -V shmem_load.comp -o shmem_loads8_u32.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate5m2_t -DC_TYPE=float16_t -V tiled_load.comp -o tiled_loade5m2_fp16.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate4m3_t -DC_TYPE=float16_t -V tiled_load.comp -o tiled_loade4m3_fp16.spv
 glslangValidator --target-env spirv1.3 -DA_BITS=8  -DA_TYPE=floate5m2_t -DC_TYPE=float32_t -V tiled_load.comp -o tiled_loade5m2_fp32.spv
