@@ -685,17 +685,17 @@ int main(int argc, char *argv[])
     }
     VkPhysicalDevice physicalDevice = physicalDevices[physicalDeviceIndex];
 
-    VkPhysicalDeviceSubgroupProperties subgroupProperties = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
+    VkPhysicalDeviceVulkan13Properties vulkan13Properties = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES,
         NULL,
     };
     VkPhysicalDeviceProperties2 physicalProperties2 = {
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-        &subgroupProperties,
+        &vulkan13Properties,
     };
     vkGetPhysicalDeviceProperties2(physicalDevice, &physicalProperties2);
-    uint32_t subgroupSize = subgroupProperties.subgroupSize;
-    printf("subgroup size: %d\n", subgroupSize);
+    uint32_t subgroupSize = vulkan13Properties.minSubgroupSize;
+    printf("min subgroup size: %d\n", subgroupSize);
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
