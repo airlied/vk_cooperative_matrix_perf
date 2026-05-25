@@ -685,6 +685,17 @@ int main(int argc, char *argv[])
     }
     VkPhysicalDevice physicalDevice = physicalDevices[physicalDeviceIndex];
 
+    VkPhysicalDeviceSubgroupProperties subgroupProperties = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES,
+        NULL,
+    };
+    VkPhysicalDeviceProperties2 physicalProperties2 = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        &subgroupProperties,
+    };
+    vkGetPhysicalDeviceProperties2(physicalDevice, &physicalProperties2);
+    uint32_t subgroupSize = subgroupProperties.subgroupSize;
+    printf("subgroup size: %d\n", subgroupSize);
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
@@ -1153,7 +1164,7 @@ int main(int argc, char *argv[])
         if (filter.bcolmajor != -1 && (int)bcolmajor != filter.bcolmajor) continue;
         for (unsigned int TILE_K = 16; TILE_K <= 64; TILE_K *= 2) {
         if (filter.tileK != -1 && (int)TILE_K != filter.tileK) continue;
-        for (unsigned int workgroupSize = 32; workgroupSize <= 256; workgroupSize *= 2) {
+        for (unsigned int workgroupSize = subgroupSize; workgroupSize <= 256; workgroupSize *= 2) {
         if (filter.workgroupSize != -1 && (int)workgroupSize != filter.workgroupSize) continue;
 
             if (isWorkgroupTest && (TILE_N_size == 192 || TILE_M_size == 192)) {
@@ -1228,12 +1239,12 @@ int main(int argc, char *argv[])
                 }
                 break;
             case TT_SHARED:
-                if (workgroupSize != 256) {
+                if (workgroupSize != subgroupSize * 8) {
                     continue;
                 }
                 break;
             case TT_TILED:
-                if (workgroupSize != 32) {
+                if (workgroupSize != subgroupSize) {
                     continue;
                 }
                 break;
@@ -1444,7 +1455,7 @@ int main(int argc, char *argv[])
             VkPipelineShaderStageRequiredSubgroupSizeCreateInfo subgroupSizeCreateInfo = {
                 VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,
                 NULL,
-                32,
+                subgroupSize,
             };
 
             VkPipelineShaderStageCreateInfo shaderCreateInfo = {
