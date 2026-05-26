@@ -48,6 +48,7 @@ layout(constant_id = 10)const uint strideD = 1;
 layout(constant_id = 11)const float alpha = 1.0;
 layout(constant_id = 12)const float beta = 1.0;
 layout(constant_id = 13)const bool BColMajor = false;
+layout(constant_id = 21)const bool AColMajor = false;
 
 // #defines set on command line:
 // A_BITS = 8 or 16 or 32 (bits per component)
@@ -85,7 +86,7 @@ void main()
         [[unroll]] for (uint i = 0; i < C_ROWS; ++i) {
             uint gi = TILE_M * tileID.y + lM * i;
             uint gk = chunkK;
-            coopMatLoad(matA[i], inputA.x, coordToOffset(gi, gk, strideA, false), strideA, gl_CooperativeMatrixLayoutRowMajor);
+            coopMatLoad(matA[i], inputA.x, coordToOffset(gi, gk, strideA, AColMajor), strideA, AColMajor ? gl_CooperativeMatrixLayoutColumnMajor : gl_CooperativeMatrixLayoutRowMajor);
             accum += C_TYPE(matA[i][0]);
         }
         coopmat<A_TYPE, gl_ScopeSubgroup, lK, lN, gl_MatrixUseB> matB;

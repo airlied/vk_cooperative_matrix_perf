@@ -48,6 +48,7 @@ layout(constant_id = 10)const uint strideD = 1;
 layout(constant_id = 11)const float alpha = 1.0;
 layout(constant_id = 12)const float beta = 1.0;
 layout(constant_id = 13)const bool BColMajor = false;
+layout(constant_id = 21)const bool AColMajor = false;
 // Size and number of rows in A matrix. equal to TILE_K,TILE_M (always row major)
 layout(constant_id = 14)const uint A_ROW_LEN = 1;
 layout(constant_id = 15)const uint A_NUM_ROWS = 1;
@@ -95,8 +96,12 @@ void main()
     tensorLayoutB = setTensorLayoutDimensionNV(tensorLayoutB, K, N);
     tensorLayoutC = setTensorLayoutDimensionNV(tensorLayoutC, M, N);
 
+    tensorViewNV<2, false, 1, 0> tensorViewA = createTensorViewNV(2, false, 1, 0);
     tensorViewNV<2, false, 1, 0> tensorViewB = createTensorViewNV(2, false, 1, 0);
 
+    if (AColMajor) {
+        tensorLayoutA = setTensorLayoutDimensionNV(tensorLayoutA, K, M);
+    }
     if (BColMajor) {
         tensorLayoutB = setTensorLayoutDimensionNV(tensorLayoutB, N, K);
     }
@@ -104,7 +109,11 @@ void main()
     for (uint chunkK = 0; chunkK < K; chunkK += TILE_K) {
 
         coopmat<A_TYPE, gl_ScopeWorkgroup, TILE_M, TILE_K, gl_MatrixUseA> matA;
-        coopMatLoadTensorNV(matA, inputAV4.x, 0, sliceTensorLayoutNV(tensorLayoutA, TILE_M * tileID.y, TILE_M, chunkK, TILE_K));
+        if (AColMajor) {
+            coopMatLoadTensorNV(matA, inputAV4.x, 0, sliceTensorLayoutNV(tensorLayoutA, chunkK, TILE_K, TILE_M * tileID.y, TILE_M), tensorViewA);
+        } else {
+            coopMatLoadTensorNV(matA, inputAV4.x, 0, sliceTensorLayoutNV(tensorLayoutA, TILE_M * tileID.y, TILE_M, chunkK, TILE_K));
+        }
 
         coopmat<A_TYPE, gl_ScopeWorkgroup, TILE_K, TILE_N, gl_MatrixUseB> matB;
         if (BColMajor) {

@@ -48,6 +48,7 @@ layout(constant_id = 10)const uint strideD = 1;
 layout(constant_id = 11)const float alpha = 1.0;
 layout(constant_id = 12)const float beta = 1.0;
 layout(constant_id = 13)const bool BColMajor = false;
+layout(constant_id = 21)const bool AColMajor = false;
 
 // #defines set on command line:
 // A_TYPE = e.g. float or float16_t
@@ -81,7 +82,7 @@ void main()
     for (uint chunkK = 0; chunkK < K; chunkK += TILE_K) {
 
         coopmat<A_TYPE, gl_ScopeWorkgroup, TILE_M, TILE_K, gl_MatrixUseA> matA;
-        coopMatLoad(matA, inputA.x, coordToOffset(TILE_M * tileID.y, chunkK, strideA, false), strideA, gl_CooperativeMatrixLayoutRowMajor);
+        coopMatLoad(matA, inputA.x, coordToOffset(TILE_M * tileID.y, chunkK, strideA, AColMajor), strideA, AColMajor ? gl_CooperativeMatrixLayoutColumnMajor : gl_CooperativeMatrixLayoutRowMajor);
 
         coopmat<A_TYPE, gl_ScopeWorkgroup, TILE_K, TILE_N, gl_MatrixUseB> matB;
         coopMatLoad(matB, inputB.x, coordToOffset(chunkK, TILE_N * tileID.x, strideB, BColMajor), strideB, BColMajor ? gl_CooperativeMatrixLayoutColumnMajor : gl_CooperativeMatrixLayoutRowMajor);

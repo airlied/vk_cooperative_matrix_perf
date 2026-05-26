@@ -126,6 +126,7 @@ struct TestFilter {
     int tileM;
     int tileN;
     int tileK;
+    int acolmajor;
     int bcolmajor;
     int workgroupSize;
     int matrixSize;
@@ -197,6 +198,7 @@ struct TestCase
     uint32_t TILE_N;
     uint32_t TILE_K;
 
+    bool AColMajor;
     bool BColMajor;
     uint32_t ARowLen;
     uint32_t ANumRows;
@@ -550,7 +552,7 @@ void destroyMatrixDesc(VkDevice device, MatrixDesc &m)
 int main(int argc, char *argv[])
 {
     bool correctness = false;
-    TestFilter filter = { -1, -1, -1, -1, -1, -1, -1, -1, -1, false };
+    TestFilter filter = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, false };
 
     for (int arg = 1; arg < argc; ++arg) {
         if (strcmp(argv[arg], "--correctness") == 0) {
@@ -581,6 +583,8 @@ int main(int argc, char *argv[])
             filter.tileN = atoi(argv[arg] + 9);
         } else if (strncmp(argv[arg], "--tile-k=", 9) == 0) {
             filter.tileK = atoi(argv[arg] + 9);
+        } else if (strncmp(argv[arg], "--acolmajor=", 12) == 0) {
+            filter.acolmajor = atoi(argv[arg] + 12);
         } else if (strncmp(argv[arg], "--bcolmajor=", 12) == 0) {
             filter.bcolmajor = atoi(argv[arg] + 12);
         } else if (strncmp(argv[arg], "--workgroup-size=", 17) == 0) {
@@ -597,6 +601,7 @@ int main(int argc, char *argv[])
                    "  --tile-m=N                 TILE_M size\n"
                    "  --tile-n=N                 TILE_N size\n"
                    "  --tile-k=N                 TILE_K size\n"
+                   "  --acolmajor=0|1            A column major\n"
                    "  --bcolmajor=0|1            B column major\n"
                    "  --workgroup-size=N         Workgroup size\n"
                    "  --matrix-size=N            Matrix dimension (default: 4096 perf, 256 correctness)\n");
@@ -1177,6 +1182,8 @@ int main(int argc, char *argv[])
         double maxPerfThisIter = 0;
         for (unsigned int TILE_N_size = params->granularityTILE_N; TILE_N_size <= params->maxTILE_N; TILE_N_size += params->granularityTILE_N) {
         if (filter.tileN != -1 && (int)TILE_N_size != filter.tileN) continue;
+        for (unsigned int acolmajor = 0; acolmajor <= 1; ++acolmajor) {
+        if (filter.acolmajor != -1 && (int)acolmajor != filter.acolmajor) continue;
         for (unsigned int bcolmajor = 0; bcolmajor <= 1; ++bcolmajor) {
         if (filter.bcolmajor != -1 && (int)bcolmajor != filter.bcolmajor) continue;
         for (unsigned int TILE_K = 16; TILE_K <= 64; TILE_K *= 2) {
@@ -1191,7 +1198,18 @@ int main(int argc, char *argv[])
                 continue;
             }
 
+            bool AColMajor = acolmajor != 0;
             bool BColMajor = bcolmajor != 0;
+
+            // A matrix must be wide enough to load via uvec4 addressing from shared memory
+            if (AColMajor && (tt == TT_SHARED || tt == TT_SHARED_LOAD) &&
+                componentTypeInfo[AType].bits / 8 * MSize < 16) {
+                continue;
+            }
+            if (!AColMajor && (tt == TT_SHARED || tt == TT_SHARED_LOAD) &&
+                componentTypeInfo[AType].bits / 8 * KSize < 16) {
+                continue;
+            }
 
             // B matrix must be wide enough to load via uvec4 addressing from shared memory
             if (!BColMajor && (tt == TT_SHARED || tt == TT_SHARED_LOAD) &&
@@ -1223,6 +1241,7 @@ int main(int argc, char *argv[])
                 TILE_N_size, // uint32_t TILE_N;
                 TILE_K, // uint32_t TILE_K;
 
+                AColMajor, // bool AColMajor;
                 BColMajor, // bool BColMajor;
             };
             float alpha = 2.0f, beta = 3.0f;
@@ -1288,19 +1307,19 @@ int main(int argc, char *argv[])
             testCase.N = (testCase.N + testCase.TILE_N - 1) / testCase.TILE_N * testCase.TILE_N;
             testCase.K = (testCase.K + testCase.TILE_K - 1) / testCase.TILE_K * testCase.TILE_K;
 
-            testCase.ARowLen = testCase.TILE_K;
-            testCase.ANumRows = testCase.TILE_M;
+            testCase.ARowLen = AColMajor ? testCase.TILE_M : testCase.TILE_K;
+            testCase.ANumRows = AColMajor ? testCase.TILE_K : testCase.TILE_M;
             testCase.BRowLen = BColMajor ? testCase.TILE_K : testCase.TILE_N;
             testCase.BNumRows = BColMajor ? testCase.TILE_N : testCase.TILE_K;
 
             testsFound++;
 
             if (filter.list) {
-                printf("%-14s %s -> %s  M=%d N=%d K=%d  TILE_M=%d TILE_N=%d TILE_K=%d BColMajor=%d workgroupSize=%d\n",
+                printf("%-14s %s -> %s  M=%d N=%d K=%d  TILE_M=%d TILE_N=%d TILE_K=%d AColMajor=%d BColMajor=%d workgroupSize=%d\n",
                     testTypeNames[tt], typeStrA.c_str(), typeStrR.c_str(),
                     testCase.M, testCase.N, testCase.K,
                     testCase.TILE_M, testCase.TILE_N, testCase.TILE_K,
-                    testCase.BColMajor, workgroupSize);
+                    testCase.AColMajor, testCase.BColMajor, workgroupSize);
                 continue;
             }
 
@@ -1427,7 +1446,7 @@ int main(int argc, char *argv[])
                 testCase.TILE_N,
                 testCase.TILE_K,
                 testCase.K,
-                testCase.K, // stride0
+                testCase.AColMajor ? testCase.M : testCase.K, // stride0
                 testCase.BColMajor ? testCase.K : testCase.N, // stride1
                 testCase.N, // stride2
                 testCase.N, // stride3
@@ -1441,6 +1460,7 @@ int main(int argc, char *argv[])
                 workgroupSize, // invocations per workgroup
                 testCase.M,
                 testCase.N,
+                testCase.AColMajor,
             };
 
 #if 0
@@ -1471,6 +1491,7 @@ int main(int argc, char *argv[])
                 {18, sizeof(uint32_t) * 18, sizeof(uint32_t)},
                 {19, sizeof(uint32_t) * 19, sizeof(uint32_t)},
                 {20, sizeof(uint32_t) * 20, sizeof(uint32_t)},
+                {21, sizeof(uint32_t) * 21, sizeof(uint32_t)},
             };
 
             VkSpecializationInfo specInfo =
@@ -1591,7 +1612,7 @@ int main(int argc, char *argv[])
             uint64_t flops = 2ULL * (uint64_t)testCase.M * (uint64_t)testCase.N * (uint64_t)testCase.K * (uint64_t)repeatCount;
             double tflops = (double)flops / (double)(elapsedUs / 1000000.0) / (1000.0*1000.0*1000.0*1000.0);
 
-            printf("TILE_M=%d TILE_N=%d, TILE_K=%d BColMajor=%d workgroupSize=%d ", testCase.TILE_M, testCase.TILE_N, testCase.TILE_K, testCase.BColMajor, workgroupSize);
+            printf("TILE_M=%d TILE_N=%d, TILE_K=%d AColMajor=%d BColMajor=%d workgroupSize=%d ", testCase.TILE_M, testCase.TILE_N, testCase.TILE_K, testCase.AColMajor, testCase.BColMajor, workgroupSize);
             if (!correctness) {
                 if (isLoadOnlyTest) {
                     uint64_t elementsA = (uint64_t)testCase.M * (uint64_t)testCase.K * (uint64_t)repeatCount;
@@ -1639,7 +1660,7 @@ int main(int argc, char *argv[])
                             float ref = 0;
                             for (uint32_t k = 0; k < testCase.K; ++k)
                             {
-                                ref += mat_a.getDataFloat(i, k, false) * mat_b.getDataFloat(k, j, testCase.BColMajor);
+                                ref += mat_a.getDataFloat(i, k, testCase.AColMajor) * mat_b.getDataFloat(k, j, testCase.BColMajor);
                             }
 
                             ref = alpha*ref + beta*mat_c.getDataFloat(i, j, false);
@@ -1662,7 +1683,7 @@ int main(int argc, char *argv[])
                             uint32_t ref = 0;
                             for (uint32_t k = 0; k < testCase.K; ++k)
                             {
-                                ref += mat_a.getDataInt(i, k, false) * mat_b.getDataInt(k, j, testCase.BColMajor);
+                                ref += mat_a.getDataInt(i, k, testCase.AColMajor) * mat_b.getDataInt(k, j, testCase.BColMajor);
                             }
 
                             ref = ((int)alpha)*ref + ((int)beta)*mat_c.getDataInt(i, j, false);
@@ -1708,6 +1729,7 @@ int main(int argc, char *argv[])
         } // workgroupSize
         } // TILE_K
         } // bcolmajor
+        } // acolmajor
         } // TILE_N_size
         } // TILE_M_size
 
